@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Honeypot Defense System - 蜜罐防御系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0a0e27;
+            color: #e0e6ed;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            padding: 30px 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: -20px -20px 30px -20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .chat-section {
+            background: #1a1f3a;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid #2d3561;
+        }
+
+        .analysis-panel {
+            background: #1a1f3a;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid #2d3561;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .stage-indicator {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 10px;
+            border: 1px solid #667eea;
+        }
+
+        .stage {
+            text-align: center;
+            padding: 10px 20px;
+            border-radius: 8px;
+            background: #2d3561;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .stage.active {
+            background: #667eea;
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
+        }
+
+        .stage.completed {
+            background: #48bb78;
+        }
+
+        .stage-number {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stage-name {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .chat-messages {
+            height: 500px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            text-align: right;
+        }
+
+        .message.system {
+            text-align: left;
+        }
+
+        .message-content {
+            display: inline-block;
+            max-width: 80%;
+            padding: 15px 20px;
+            border-radius: 15px;
+            position: relative;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-content {
+            background: #667eea;
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message.system .message-content {
+            background: #2d3561;
+            color: #e0e6ed;
+            border-bottom-left-radius: 5px;
+        }
+
+        .message-label {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+
+        .input-section {
+            display: flex;
+            gap: 15px;
+        }
+
+        .input-field {
+            flex: 1;
+            padding: 15px 20px;
+            background: #2d3561;
+            border: 2px solid #3d4771;
+            border-radius: 10px;
+            color: #e0e6ed;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #667eea;
+            background: #363d61;
+        }
+
+        .send-btn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .send-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .analysis-card {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #3d4771;
+        }
+
+        .analysis-card h3 {
+            margin-bottom: 15px;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .analysis-card h3::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: #667eea;
+            border-radius: 2px;
+        }
+
+        .score-display {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .score-box {
+            flex: 1;
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
+            border-radius: 10px;
+            border: 1px solid #667eea;
+        }
+
+        .score-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .score-label {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .verdict-display {
+            padding: 20px;
+            background: rgba(72, 187, 120, 0.1);
+            border: 1px solid #48bb78;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .verdict-display.high-risk {
+            background: rgba(245, 101, 101, 0.1);
+            border-color: #f56565;
+        }
+
+        .verdict-display.medium-risk {
+            background: rgba(237, 137, 54, 0.1);
+            border-color: #ed8936;
+        }
+
+        .verdict-code {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .threat-info {
+            background: rgba(245, 101, 101, 0.1);
+            border: 1px solid #f56565;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .threat-category {
+            font-weight: bold;
+            color: #f56565;
+            margin-bottom: 5px;
+        }
+
+        .threat-hypothesis {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .confidence-meter {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .confidence-bar {
+            flex: 1;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #48bb78, #667eea, #f56565);
+            transition: width 0.3s ease;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #3d4771;
+        }
+
+        .control-btn {
+            flex: 1;
+            padding: 12px 20px;
+            background: #2d3561;
+            color: #e0e6ed;
+            border: 1px solid #3d4771;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .control-btn:hover {
+            background: #3d4771;
+            border-color: #667eea;
+        }
+
+        .api-setup {
+            background: #1a1f3a;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid #2d3561;
+        }
+
+        .api-input {
+            width: 100%;
+            padding: 15px;
+            background: #2d3561;
+            border: 2px solid #3d4771;
+            border-radius: 10px;
+            color: #e0e6ed;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .status-indicator.active {
+            background: #48bb78;
+        }
+
+        .status-indicator.processing {
+            background: #ed8936;
+        }
+
+        .status-indicator.error {
+            background: #f56565;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .honeypot-bait {
+            background: rgba(237, 137, 54, 0.1);
+            border: 1px solid #ed8936;
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        .honeypot-bait::before {
+            content: '🎣 ';
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #764ba2;
+        }
+
+        .error-message {
+            background: rgba(245, 101, 101, 0.1);
+            border: 1px solid #f56565;
+            color: #f56565;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ Honeypot Defense System</h1>
+            <p>三阶段AI威胁检测与蜜罐防御系统</p>
+        </div>
+
+        <div class="api-setup" id="apiSetup">
+            <h3>API Configuration</h3>
+            <input type="password" class="api-input" id="apiKey" placeholder="Enter your OpenAI API key...">
+            <button class="send-btn" onclick="initializeSystem()">Initialize System</button>
+            <div id="setupError" class="error-message" style="display: none;"></div>
+        </div>
+
+        <div id="mainInterface" style="display: none;">
+            <div class="stage-indicator">
+                <div class="stage" id="stage1">
+                    <div class="stage-number">1</div>
+                    <div class="stage-name">威胁分析</div>
+                </div>
+                <div class="stage" id="stage2">
+                    <div class="stage-number">2</div>
+                    <div class="stage-name">蜜罐响应</div>
+                </div>
+                <div class="stage" id="stage3">
+                    <div class="stage-number">3</div>
+                    <div class="stage-name">意图判定</div>
+                </div>
+            </div>
+
+            <div class="main-grid">
+                <div class="chat-section">
+                    <h2>Conversation</h2>
+                    <div class="chat-messages" id="chatMessages"></div>
+                    <div class="input-section">
+                        <input type="text" class="input-field" id="userInput" placeholder="Enter your message..." onkeypress="handleKeyPress(event)">
+                        <button class="send-btn" id="sendBtn" onclick="sendMessage()">Send</button>
+                    </div>
+                    <div class="controls">
+                        <button class="control-btn" onclick="exportConversation()">📥 Export JSON</button>
+                        <button class="control-btn" onclick="clearConversation()">🗑️ Clear</button>
+                        <button class="control-btn" onclick="showMetrics()">📊 Metrics</button>
+                    </div>
+                </div>
+
+                <div class="analysis-panel">
+                    <h2>Real-time Analysis</h2>
+                    
+                    <div class="analysis-card" id="threatAnalysis" style="display: none;">
+                        <h3>Stage 1: Threat Intelligence</h3>
+                        <div class="threat-info">
+                            <div class="threat-category" id="threatCategory">-</div>
+                            <div class="threat-hypothesis" id="threatHypothesis">-</div>
+                            <div class="confidence-meter">
+                                <span>Confidence:</span>
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill" id="confidenceFill" style="width: 0%"></div>
+                                </div>
+                                <span id="confidenceValue">0/5</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="analysis-card" id="honeypotBaits" style="display: none;">
+                        <h3>Stage 2: Honeypot Baits</h3>
+                        <div id="baitsList"></div>
+                    </div>
+
+                    <div class="analysis-card" id="judgmentAnalysis" style="display: none;">
+                        <h3>Stage 3: Judgment</h3>
+                        <div class="score-display">
+                            <div class="score-box">
+                                <div class="score-value" id="aScore">-</div>
+                                <div class="score-label">A-Score<br>(诱导性)</div>
+                            </div>
+                            <div class="score-box">
+                                <div class="score-value" id="fScore">-</div>
+                                <div class="score-label">F-Score<br>(危害性)</div>
+                            </div>
+                        </div>
+                        <div class="verdict-display" id="verdictDisplay">
+                            <div class="verdict-code" id="verdictCode">-</div>
+                            <div id="verdictDetails">Awaiting judgment...</div>
+                        </div>
+                    </div>
+
+                    <div class="analysis-card">
+                        <h3>System Status</h3>
+                        <div id="systemStatus">
+                            <span class="status-indicator active"></span>
+                            <span>System Ready</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let apiKey = '';
+        let conversationHistory = [];
+        let currentAnalysis = {};
+        let honeypotBaits = [];
+        let isProcessing = false;
+        let isWaitingForJudgment = false;
+
+        function initializeSystem() {
+            apiKey = document.getElementById('apiKey').value;
+            if (!apiKey) {
+                showError('setupError', 'Please enter your OpenAI API key');
+                return;
+            }
+            
+            document.getElementById('apiSetup').style.display = 'none';
+            document.getElementById('mainInterface').style.display = 'block';
+            updateStatus('System initialized', 'active');
+        }
+
+        function showError(elementId, message) {
+            const errorElement = document.getElementById(elementId);
+            if (errorElement) {
+                errorElement.textContent = message;
+                errorElement.style.display = 'block';
+                setTimeout(() => {
+                    errorElement.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !isProcessing) {
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const message = input.value.trim();
+            
+            if (!message || isProcessing) return;
+            
+            isProcessing = true;
+            input.value = '';
+            updateSendButton(true);
+            
+            // Add user message to chat
+            addMessage(message, 'user');
+            
+            try {
+                if (isWaitingForJudgment) {
+                    // User is responding to honeypot baits, process Stage 3
+                    await processUserResponseToHoneypot(message);
+                } else {
+                    // New conversation flow, start from Stage 1
+                    await processNewUserQuery(message);
+                }
+                
+                // Auto-save conversation after each interaction
+                await autoSaveConversation();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                updateStatus('Error: ' + error.message, 'error');
+                addMessage('Error: ' + error.message, 'system');
+            } finally {
+                isProcessing = false;
+                updateSendButton(false);
+            }
+        }
+
+        async function processNewUserQuery(message) {
+            // Add to conversation history
+            conversationHistory.push({
+                role: 'user',
+                content: message,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Stage 1: Threat Analysis
+            const analysis = await processStage1(message);
+            
+            // Stage 2: Generate Honeypot Response
+            const response = await processStage2(message, analysis);
+            
+            // Add system response to chat
+            addMessage(response, 'system');
+            
+            // Add to conversation history
+            conversationHistory.push({
+                role: 'assistant',
+                content: response,
+                timestamp: new Date().toISOString(),
+                baits: honeypotBaits,
+                analysis: analysis
+            });
+            
+            // Set flag to wait for user's response for judgment
+            isWaitingForJudgment = true;
+        }
+
+        async function processUserResponseToHoneypot(message) {
+            // Add to conversation history
+            conversationHistory.push({
+                role: 'user',
+                content: message,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Stage 3: Judge the response
+            const judgment = await processStage3(message);
+            
+            // Generate follow-up response based on judgment
+            const followupResponse = await generateFollowupResponse(judgment, message);
+            addMessage(followupResponse, 'system');
+            
+            conversationHistory.push({
+                role: 'assistant',
+                content: followupResponse,
+                timestamp: new Date().toISOString(),
+                judgment: judgment
+            });
+            
+            // Check if we should continue honeypot or reset
+            if (judgment.next_action.action_code === 'ABORT_HONEYPOT' || 
+                judgment.next_action.action_code === 'INTENT_REJECTED_DISENGAGE') {
+                isWaitingForJudgment = false;
+                resetAnalysisDisplay();
+            } else if (judgment.next_action.action_code === 'CONTINUE_ENGAGEMENT') {
+                // Continue waiting for more specific response
+                isWaitingForJudgment = true;
+            } else {
+                // Proceed to final stage completed
+                isWaitingForJudgment = false;
+            }
+        }
+
+        async function processStage1(message) {
+            setActiveStage(1);
+            updateStatus('Analyzing threat intelligence...', 'processing');
+            
+            const threatAnalysis = await callAPI('/api/threat-analysis', {
+                prompt: message,
+                apiKey: apiKey
+            });
+            
+            currentAnalysis = threatAnalysis;
+            displayThreatAnalysis(threatAnalysis);
+            
+            return threatAnalysis;
+        }
+
+        async function processStage2(message, analysis) {
+            setActiveStage(2);
+            updateStatus('Generating honeypot response...', 'processing');
+            
+            const response = await callAPI('/api/honeypot-response', {
+                prompt: message,
+                analysis: analysis,
+                apiKey: apiKey
+            });
+            
+            // Extract the final response text
+            let finalResponseText = response.finalResponse || response.honeypotResponse || '';
+            
+            // Clean up any JSON formatting if still present
+            if (typeof finalResponseText === 'string' && finalResponseText.includes('"final_response"')) {
+                try {
+                    // Try to extract from various JSON formats
+                    const jsonMatch = finalResponseText.match(/"final_response"\s*:\s*"([^"]+)"/);
+                    if (jsonMatch && jsonMatch[1]) {
+                        finalResponseText = jsonMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+                    }
+                } catch (e) {
+                    console.error('Error parsing response:', e);
+                }
+            }
+            
+            // Extract baits from response
+            honeypotBaits = extractBaits(response.honeypotResponse || finalResponseText);
+            displayHoneypotBaits(honeypotBaits);
+            
+            return finalResponseText;
+        }
+
+        async function processStage3(userResponse) {
+            setActiveStage(3);
+            updateStatus('Judging user response...', 'processing');
+            
+            const caseFile = {
+                initial_hypothesis: {
+                    primary_category: currentAnalysis.primary_category,
+                    specific_intent_hypothesis: currentAnalysis.specific_intent_hypothesis
+                },
+                honeypot_baits_offered: honeypotBaits,
+                user_response_to_judge: userResponse
+            };
+            
+            const judgment = await callAPI('/api/judge-response', {
+                caseFile: caseFile,
+                apiKey: apiKey
+            });
+            
+            displayJudgment(judgment);
+            
+            return judgment;
+        }
+
+        async function generateFollowupResponse(judgment, userMessage) {
+            updateStatus('Generating follow-up response...', 'processing');
+            
+            const response = await callAPI('/api/followup-response', {
+                judgment: judgment,
+                userMessage: userMessage,
+                apiKey: apiKey
+            });
+            
+            return response.followupResponse;
+        }
+
+        function extractBaits(honeypotResponse) {
+            const baits = [];
+            const patterns = [
+                /examining ([^;.]*)/gi,
+                /analyzing ([^;.]*)/gi,
+                /evaluating ([^;.]*)/gi,
+                /investigating ([^;.]*)/gi,
+                /exploring ([^;.]*)/gi,
+                /understanding ([^;.]*)/gi
+            ];
+            
+            patterns.forEach(pattern => {
+                const matches = honeypotResponse.matchAll(pattern);
+                for (const match of matches) {
+                    if (match[0].length > 20) {
+                        baits.push(match[0]);
+                    }
+                }
+            });
+            
+            return [...new Set(baits)]; // Remove duplicates
+        }
+
+        function displayThreatAnalysis(analysis) {
+            document.getElementById('threatAnalysis').style.display = 'block';
+            document.getElementById('threatCategory').textContent = analysis.primary_category || 'Unknown';
+            document.getElementById('threatHypothesis').textContent = analysis.specific_intent_hypothesis || 'No hypothesis';
+            
+            const confidence = analysis.confidence_score || 0;
+            const confidencePercent = (confidence / 5) * 100;
+            document.getElementById('confidenceFill').style.width = confidencePercent + '%';
+            document.getElementById('confidenceValue').textContent = confidence + '/5';
+        }
+
+        function displayHoneypotBaits(baits) {
+            document.getElementById('honeypotBaits').style.display = 'block';
+            const baitsList = document.getElementById('baitsList');
+            baitsList.innerHTML = '';
+            
+            if (baits.length === 0) {
+                baitsList.innerHTML = '<div style="opacity: 0.7;">No specific baits detected</div>';
+                return;
+            }
+            
+            baits.forEach(bait => {
+                const baitDiv = document.createElement('div');
+                baitDiv.className = 'honeypot-bait';
+                baitDiv.textContent = bait;
+                baitsList.appendChild(baitDiv);
+            });
+        }
+
+        function displayJudgment(judgment) {
+            document.getElementById('judgmentAnalysis').style.display = 'block';
+            
+            // Display scores
+            const aScore = judgment.quantitative_assessment?.a_score || 0;
+            const fScore = judgment.quantitative_assessment?.f_score || 0;
+            document.getElementById('aScore').textContent = parseFloat(aScore).toFixed(1);
+            document.getElementById('fScore').textContent = parseFloat(fScore).toFixed(1);
+            
+            // Display verdict
+            const verdictCode = judgment.verdict_code || 'UNKNOWN';
+            document.getElementById('verdictCode').textContent = verdictCode;
+            document.getElementById('verdictDetails').textContent = judgment.analysis_rationale || 'No details available';
+            
+            // Style verdict display based on risk level
+            const verdictDisplay = document.getElementById('verdictDisplay');
+            verdictDisplay.className = 'verdict-display';
+            if (verdictCode.includes('CONFIRMED_HIGH')) {
+                verdictDisplay.classList.add('high-risk');
+            } else if (verdictCode.includes('CONFIRMED_MODERATE')) {
+                verdictDisplay.classList.add('medium-risk');
+            }
+        }
+
+        function addMessage(content, type) {
+            const messagesDiv = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'message-label';
+            labelDiv.textContent = type === 'user' ? 'You' : 'System';
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+            
+            messageDiv.appendChild(labelDiv);
+            messageDiv.appendChild(contentDiv);
+            messagesDiv.appendChild(messageDiv);
+            
+            // Scroll to bottom
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function setActiveStage(stage) {
+            document.querySelectorAll('.stage').forEach((el, index) => {
+                el.classList.remove('active', 'completed');
+                if (index < stage - 1) {
+                    el.classList.add('completed');
+                } else if (index === stage - 1) {
+                    el.classList.add('active');
+                }
+            });
+        }
+
+        function updateStatus(message, type) {
+            const statusDiv = document.getElementById('systemStatus');
+            const indicator = statusDiv.querySelector('.status-indicator');
+            
+            indicator.className = 'status-indicator ' + type;
+            statusDiv.querySelector('span:last-child').textContent = message;
+        }
+
+        function updateSendButton(disabled) {
+            const btn = document.getElementById('sendBtn');
+            btn.disabled = disabled;
+            if (disabled) {
+                btn.innerHTML = '<span class="loading-spinner"></span> Processing...';
+            } else {
+                btn.textContent = 'Send';
+            }
+        }
+
+        async function callAPI(endpoint, data) {
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.text();
+                    throw new Error(`API Error: ${response.status} - ${errorData}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed:', error);
+                throw error;
+            }
+        }
+
+        function resetAnalysisDisplay() {
+            document.getElementById('threatAnalysis').style.display = 'none';
+            document.getElementById('honeypotBaits').style.display = 'none';
+            document.getElementById('judgmentAnalysis').style.display = 'none';
+            setActiveStage(0);
+            currentAnalysis = {};
+            honeypotBaits = [];
+        }
+
+        async function autoSaveConversation() {
+            try {
+                const sessionId = Date.now();
+                const response = await callAPI('/api/save-conversation', {
+                    sessionId: sessionId,
+                    conversationHistory: conversationHistory
+                });
+                
+                if (response.success) {
+                    console.log('Conversation auto-saved:', response.filename);
+                    updateStatus(`Auto-saved: ${response.filename}`, 'active');
+                }
+            } catch (error) {
+                console.error('Auto-save failed:', error);
+            }
+        }
+
+        function exportConversation() {
+            const exportData = {
+                sessionId: Date.now(),
+                timestamp: new Date().toISOString(),
+                conversationHistory: conversationHistory,
+                metrics: {
+                    totalMessages: conversationHistory.length,
+                    threatsDetected: conversationHistory.filter(m => m.analysis?.confidence_score > 3).length,
+                    judgments: conversationHistory.filter(m => m.judgment).map(m => ({
+                        timestamp: m.timestamp,
+                        verdict: m.judgment.verdict_code,
+                        aScore: m.judgment.quantitative_assessment?.a_score,
+                        fScore: m.judgment.quantitative_assessment?.f_score
+                    }))
+                }
+            };
+            
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `honeypot_conversation_${exportData.sessionId}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function clearConversation() {
+            if (confirm('Clear all conversation history?')) {
+                conversationHistory = [];
+                document.getElementById('chatMessages').innerHTML = '';
+                resetAnalysisDisplay();
+                isWaitingForJudgment = false;
+                updateStatus('System Ready', 'active');
+            }
+        }
+
+        function showMetrics() {
+            const judgments = conversationHistory.filter(m => m.judgment);
+            const totalJudgments = judgments.length;
+            
+            let avgAScore = 0;
+            let avgFScore = 0;
+            
+            if (totalJudgments > 0) {
+                avgAScore = judgments.reduce((sum, m) => 
+                    sum + (m.judgment?.quantitative_assessment?.a_score || 0), 0) / totalJudgments;
+                avgFScore = judgments.reduce((sum, m) => 
+                    sum + (m.judgment?.quantitative_assessment?.f_score || 0), 0) / totalJudgments;
+            }
+            
+            const verdictCounts = {};
+            judgments.forEach(m => {
+                const verdict = m.judgment?.verdict_code || 'UNKNOWN';
+                verdictCounts[verdict] = (verdictCounts[verdict] || 0) + 1;
+            });
+            
+            let metricsText = `Conversation Metrics:\n\n`;
+            metricsText += `Total Messages: ${conversationHistory.length}\n`;
+            metricsText += `Total Judgments: ${totalJudgments}\n`;
+            metricsText += `Average A-Score: ${avgAScore.toFixed(2)}\n`;
+            metricsText += `Average F-Score: ${avgFScore.toFixed(2)}\n\n`;
+            metricsText += `Verdict Distribution:\n`;
+            
+            Object.entries(verdictCounts).forEach(([verdict, count]) => {
+                metricsText += `  ${verdict}: ${count}\n`;
+            });
+            
+            alert(metricsText);
+        }
+    </script>
+</body>
+</html>
